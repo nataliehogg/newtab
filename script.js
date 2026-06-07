@@ -278,15 +278,15 @@ let focusMode = false;
 document.getElementById('focus-toggle').addEventListener('click', () => {
   focusMode = !focusMode;
   document.body.classList.toggle('focus-mode', focusMode);
-  document.getElementById('focus-toggle').textContent = focusMode ? 'Exit Focus' : 'Focus';
+  document.getElementById('focus-toggle').textContent = focusMode ? '✕' : 'Focus';
 });
 
 // ============================================================
 // POMODORO TIMER
 // ============================================================
 
-const WORK_SECONDS  = 25 * 60;
-const BREAK_SECONDS =  5 * 60;
+const WORK_SECONDS  = 5;
+const BREAK_SECONDS = 5;
 
 const timer = {
   phase:      'work', // 'work' | 'break'
@@ -295,22 +295,24 @@ const timer = {
   intervalId: null,
 };
 
-function formatTime(s) {
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-}
+const RING_CIRCUMFERENCE = 2 * Math.PI * 108;
 
 function setPlayPauseIcon(running) {
   document.getElementById('icon-play').style.display  = running ? 'none' : 'inline';
   document.getElementById('icon-pause').style.display = running ? 'inline' : 'none';
 }
 
-function setPhaseUI(phase) {
-  document.getElementById('timer-display').dataset.phase = phase;
-}
-
-function renderTimer() {
-  document.getElementById('timer-display').textContent = formatTime(timer.remaining);
-  setPhaseUI(timer.phase);
+function renderTimer(instant = false) {
+  const totalSeconds = timer.phase === 'work' ? WORK_SECONDS : BREAK_SECONDS;
+  const progress = (totalSeconds - timer.remaining) / totalSeconds;
+  const ring = document.getElementById('timer-ring-progress');
+  if (instant) ring.style.transition = 'none';
+  ring.style.strokeDasharray  = RING_CIRCUMFERENCE;
+  ring.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - progress);
+  ring.style.stroke = timer.phase === 'work'
+    ? 'rgba(255, 255, 255, 0.4)'
+    : 'rgba(168, 216, 184, 0.4)';
+  if (instant) requestAnimationFrame(() => { ring.style.transition = ''; });
 }
 
 function tick() {
@@ -324,8 +326,6 @@ function tick() {
 
 function phaseComplete() {
   clearInterval(timer.intervalId);
-  timer.running = false;
-  setPlayPauseIcon(false);
 
   if (timer.phase === 'work') {
     incrementStreak();
@@ -337,6 +337,9 @@ function phaseComplete() {
   }
 
   renderTimer();
+  timer.intervalId = setInterval(tick, 1000);
+  timer.running = true;
+  setPlayPauseIcon(true);
 }
 
 document.getElementById('start-pause-btn').addEventListener('click', () => {
@@ -356,7 +359,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   timer.running   = false;
   timer.phase     = 'work';
   timer.remaining = WORK_SECONDS;
-  renderTimer();
+  renderTimer(true);
   setPlayPauseIcon(false);
 });
 

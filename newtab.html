@@ -28,7 +28,10 @@
 
   <!-- Focus / Pomodoro view -->
   <div id="focus-panel">
-    <div id="timer-display">25:00</div>
+    <svg id="timer-ring" viewBox="0 0 240 240" width="240" height="240">
+        <circle id="timer-ring-track" cx="120" cy="120" r="108" />
+        <circle id="timer-ring-progress" cx="120" cy="120" r="108" />
+      </svg>
     <div id="timer-controls">
       <button id="start-pause-btn" aria-label="Start">
         <svg id="icon-play" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
