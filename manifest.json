@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Personal New Tab",
+  "version": "1.0",
+  "description": "Daily photo, time, quote, and Pomodoro focus mode.",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "host_permissions": [
+    "https://api.unsplash.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; img-src 'self' data: https://*.unsplash.com; connect-src https://api.unsplash.com; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com"
+  }
+}
