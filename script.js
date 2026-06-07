@@ -6,7 +6,11 @@
 // Without a key the background falls back to a gradient.
 // ============================================================
 const UNSPLASH_ACCESS_KEY = 'cXAiHOTB8pYKNXODphDHejGyBWxw1t4aBXYX6Qe5mkw';
-const NAME = 'Natalie';
+const NAME_KEY = 'nb_name';
+
+function getName() {
+  return localStorage.getItem(NAME_KEY) || '';
+}
 
 // ============================================================
 // QUOTES — shown one per day, cycles through the list
@@ -133,44 +137,106 @@ function dateHash(str) {
 }
 
 // ============================================================
-// BACKGROUND IMAGE
+// BACKGROUND IMAGE — IndexedDB blob cache + pre-fetch
 // ============================================================
 
-async function loadBackground() {
-  const bg = document.getElementById('bg');
-  const cacheKey = 'nb_bg';
-  const stored = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+const BG_QUERIES = ['mountains', 'pine forest', 'misty forest', 'rainier', 'pacific northwest', 'waterfall', 'old growth forest', 'evergreen forest', 'mountain lake', 'fog forest', 'ferns', 'nature', 'starry sky', 'trees', 'landscape', 'dolomites', 'alps', 'alpine meadow'];
 
-  if (stored.date === todayKey() && stored.url) {
-    bg.style.backgroundImage = `url(${stored.url})`;
-    return;
-  }
-
-  if (UNSPLASH_ACCESS_KEY === 'YOUR_UNSPLASH_ACCESS_KEY_HERE') {
-    applyFallbackGradient(bg);
-    return;
-  }
-
-  const QUERIES = ['mountains', 'pine forest', 'misty forest', 'rainier', 'pacific northwest', 'waterfall', 'old growth forest', 'evergreen forest', 'mountain lake', 'fog forest', 'ferns', 'nature', 'glacier', 'starry sky', 'trees', 'landscape', 'dolomites', 'alps', 'alpine meadow'];
-  try {
-    const query = QUERIES[dateHash(todayKey()) % QUERIES.length];
-    const res = await fetch(
-      `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&client_id=${UNSPLASH_ACCESS_KEY}`
-    );
-    if (!res.ok) throw new Error(`Unsplash ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    const url = `${data.urls.raw}&w=3840&q=95&auto=format`;
-    localStorage.setItem(cacheKey, JSON.stringify({ date: todayKey(), url }));
-    bg.style.backgroundImage = `url(${url})`;
-  } catch (err) {
-    console.error('[newtab] Unsplash load failed:', err);
-    applyFallbackGradient(bg);
-  }
+function tomorrowKey() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function applyFallbackGradient(el) {
-  // Subtle mountain-dusk palette when no photo is available
-  el.style.background = 'linear-gradient(160deg, #1a1a2e 0%, #16213e 45%, #0f3460 75%, #1a2a4a 100%)';
+function openImageDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('newtab_bg', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('images');
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbGet(db, key) {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('images', 'readonly').objectStore('images').get(key);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbSet(db, key, value) {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('images', 'readwrite').objectStore('images').put(value, key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbPurgeOld(db, keepKeys) {
+  const tx = db.transaction('images', 'readwrite');
+  const store = tx.objectStore('images');
+  const req = store.getAllKeys();
+  req.onsuccess = () => {
+    for (const key of req.result) {
+      if (!keepKeys.includes(key)) store.delete(key);
+    }
+  };
+}
+
+async function fetchImageBlob(dateKey) {
+  const query = BG_QUERIES[dateHash(dateKey) % BG_QUERIES.length];
+  const res = await fetch(
+    `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&client_id=${UNSPLASH_ACCESS_KEY}`
+  );
+  if (!res.ok) throw new Error(`Unsplash ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const physicalW = Math.min(Math.ceil(screen.width * (window.devicePixelRatio || 1)), 6000);
+  const url = `${data.urls.raw}&w=${physicalW}&q=95&auto=format`;
+  const blob = await fetch(url).then(r => r.blob());
+  return blob;
+}
+
+async function prefetchTomorrow(db) {
+  const key = tomorrowKey();
+  try {
+    if (await dbGet(db, key)) return; // already cached
+    const blob = await fetchImageBlob(key);
+    await dbSet(db, key, blob);
+  } catch { /* non-fatal */ }
+}
+
+async function loadBackground() {
+  const bgImg = document.getElementById('bg-img');
+
+  let db;
+  try {
+    db = await openImageDB();
+  } catch (err) {
+    console.error('[newtab] IndexedDB unavailable:', err);
+    return;
+  }
+
+  const today = todayKey();
+  dbPurgeOld(db, [today, tomorrowKey()]);
+
+  let blob = await dbGet(db, today);
+
+  if (!blob) {
+    if (UNSPLASH_ACCESS_KEY === 'YOUR_UNSPLASH_ACCESS_KEY_HERE') return;
+    try {
+      blob = await fetchImageBlob(today);
+      await dbSet(db, today, blob);
+    } catch (err) {
+      console.error('[newtab] Unsplash load failed:', err);
+      return;
+    }
+  }
+
+  const blobUrl = URL.createObjectURL(blob);
+  bgImg.style.backgroundImage = `url(${blobUrl})`;
+
+  prefetchTomorrow(db);
 }
 
 // ============================================================
@@ -189,7 +255,7 @@ function updateTime() {
   else if (hour < 12) greeting = 'Good morning';
   else if (hour < 17) greeting = 'Good afternoon';
   else                greeting = 'Good evening';
-  document.getElementById('greeting').textContent = `${greeting}, ${NAME}`;
+  document.getElementById('greeting').textContent = `${greeting}, ${getName()}`;
 }
 
 // ============================================================
@@ -234,8 +300,8 @@ function formatTime(s) {
 }
 
 function setPlayPauseIcon(running) {
-  document.getElementById('icon-play').style.display  = running ? 'none' : '';
-  document.getElementById('icon-pause').style.display = running ? ''     : 'none';
+  document.getElementById('icon-play').style.display  = running ? 'none' : 'inline';
+  document.getElementById('icon-pause').style.display = running ? 'inline' : 'none';
 }
 
 function setPhaseUI(phase) {
@@ -350,15 +416,29 @@ function renderDots() {
 // CALENDAR POPUP
 // ============================================================
 
-function calDayHTML(day, count, isToday, isMuted, isFuture) {
-  const cls = ['cal-day', isToday && 'today', isMuted && 'muted', isFuture && 'future']
+function makeCalDay(day, count, isToday, isMuted, isFuture) {
+  const cell = document.createElement('div');
+  cell.className = ['cal-day', isToday && 'today', isMuted && 'muted', isFuture && 'future']
     .filter(Boolean).join(' ');
-  let dots = '';
-  for (let i = 0; i < count; i++) dots += '<div class="cal-dot"></div>';
-  return `<div class="${cls}"><span class="cal-num">${day}</span><div class="cal-dots-row">${dots}</div></div>`;
+
+  const num = document.createElement('span');
+  num.className = 'cal-num';
+  num.textContent = day;
+  cell.appendChild(num);
+
+  const dotsRow = document.createElement('div');
+  dotsRow.className = 'cal-dots-row';
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'cal-dot';
+    dotsRow.appendChild(dot);
+  }
+  cell.appendChild(dotsRow);
+
+  return cell;
 }
 
-function buildCalendarHTML() {
+function buildCalendar() {
   const streaks = getStreaks();
   const now     = new Date();
   const year    = now.getFullYear();
@@ -369,38 +449,47 @@ function buildCalendarHTML() {
 
   const daysInMonth     = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
-  const firstDow        = (new Date(year, month, 1).getDay() + 6) % 7; // Mon = 0
+  const firstDow        = (new Date(year, month, 1).getDay() + 6) % 7;
 
   const prevMonth = month === 0 ? 11 : month - 1;
   const prevYear  = month === 0 ? year - 1 : year;
 
-  let html = `<div id="cal-title">${MONTHS[month]} ${year}</div><div id="cal-grid">`;
+  const frag = document.createDocumentFragment();
+
+  const title = document.createElement('div');
+  title.id = 'cal-title';
+  title.textContent = `${MONTHS[month]} ${year}`;
+  frag.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.id = 'cal-grid';
 
   for (const d of ['M','T','W','T','F','S','S']) {
-    html += `<div class="cal-hdr">${d}</div>`;
+    const hdr = document.createElement('div');
+    hdr.className = 'cal-hdr';
+    hdr.textContent = d;
+    grid.appendChild(hdr);
   }
 
-  // Previous-month days filling the first row
   for (let i = firstDow - 1; i >= 0; i--) {
     const day = daysInPrevMonth - i;
     const key = `${prevYear}-${String(prevMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    html += calDayHTML(day, streaks[key] || 0, false, true, false);
+    grid.appendChild(makeCalDay(day, streaks[key] || 0, false, true, false));
   }
 
-  // Current-month days
   for (let day = 1; day <= daysInMonth; day++) {
-    const key    = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const key      = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isToday  = day === now.getDate();
     const isFuture = day > now.getDate();
-    html += calDayHTML(day, streaks[key] || 0, isToday, false, isFuture);
+    grid.appendChild(makeCalDay(day, streaks[key] || 0, isToday, false, isFuture));
   }
 
-  html += '</div>';
-  return html;
+  frag.appendChild(grid);
+  return frag;
 }
 
 function openCalendar() {
-  document.getElementById('calendar-inner').innerHTML = buildCalendarHTML();
+  document.getElementById('calendar-inner').replaceChildren(buildCalendar());
   document.getElementById('calendar-popup').classList.remove('hidden');
   document.getElementById('calendar-backdrop').classList.remove('hidden');
 }
@@ -417,8 +506,38 @@ document.getElementById('streak-main').addEventListener('keydown', e => {
 document.getElementById('calendar-backdrop').addEventListener('click', closeCalendar);
 
 // ============================================================
+// NAME PROMPT (first run)
+// ============================================================
+
+function initName() {
+  if (getName()) return;
+
+  const prompt = document.getElementById('name-prompt');
+  const input  = document.getElementById('name-input');
+  document.body.classList.add('awaiting-name');
+  prompt.classList.remove('hidden');
+  input.focus();
+
+  function saveName() {
+    const name = input.value.trim();
+    if (!name) return;
+    localStorage.setItem(NAME_KEY, name);
+    prompt.classList.add('hidden');
+    document.body.classList.remove('awaiting-name');
+    updateTime();
+  }
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') saveName(); });
+}
+
+// ============================================================
 // INIT
 // ============================================================
+
+const _fontLink = document.createElement('link');
+_fontLink.rel = 'stylesheet';
+_fontLink.href = 'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap';
+document.head.appendChild(_fontLink);
 
 loadBackground();
 loadQuote();
@@ -426,3 +545,4 @@ updateTime();
 setInterval(updateTime, 1000);
 renderTimer();
 renderDots();
+initName();

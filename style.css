@@ -18,6 +18,12 @@ body {
 #bg {
   position: fixed;
   inset: 0;
+  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 45%, #0f3460 75%, #1a2a4a 100%);
+}
+
+#bg-img {
+  position: fixed;
+  inset: 0;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -25,9 +31,9 @@ body {
   will-change: filter;
 }
 
-body.focus-mode #bg {
+body.focus-mode #bg-img {
   filter: blur(24px) brightness(0.5);
-  transform: scale(1.04); /* hides blur edges */
+  transform: scale(1.04);
 }
 
 #overlay {
@@ -149,7 +155,6 @@ body.focus-mode #focus-panel {
 
 /* ── Timer buttons ──────────────────────────────────────────── */
 
-#icon-pause { display: none; }
 
 #timer-controls {
   display: flex;
@@ -347,6 +352,57 @@ body.focus-mode #focus-panel {
   font-size: 8px;
   opacity: 0.5;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Name prompt (first run) ────────────────────────────────── */
+
+#name-prompt {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  z-index: 1000;
+}
+
+#name-prompt.hidden {
+  display: none;
+}
+
+body.awaiting-name #main,
+body.awaiting-name #quote-container,
+body.awaiting-name #focus-toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#name-label {
+  font-size: clamp(22px, 3vw, 36px);
+  font-weight: 400;
+  opacity: 0.9;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+}
+
+#name-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.6);
+  color: #fff;
+  font-family: inherit;
+  font-size: clamp(20px, 2.5vw, 30px);
+  font-weight: 400;
+  text-align: center;
+  padding: 6px 8px;
+  outline: none;
+  width: min(300px, 80vw);
+  caret-color: #fff;
+}
+
+#name-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
 }
 
 /* ── Focus toggle button ────────────────────────────────────── */

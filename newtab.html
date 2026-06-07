@@ -6,12 +6,12 @@
   <title>New Tab</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <div id="bg"></div>
+  <div id="bg-img"></div>
   <div id="overlay"></div>
 
   <!-- Normal view -->
@@ -45,6 +45,11 @@
   </div>
 
   <button id="focus-toggle">Focus</button>
+
+  <div id="name-prompt" class="hidden">
+    <p id="name-label">What should I call you?</p>
+    <input id="name-input" type="text" placeholder="Your name" autocomplete="off" spellcheck="false" maxlength="30">
+  </div>
 
   <div id="calendar-backdrop" class="hidden"></div>
   <div id="calendar-popup" class="hidden">
