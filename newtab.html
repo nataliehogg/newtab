@@ -28,17 +28,14 @@
 
   <!-- Focus / Pomodoro view -->
   <div id="focus-panel">
-    <svg id="timer-ring" viewBox="0 0 240 240" width="240" height="240">
-        <circle id="timer-ring-track" cx="120" cy="120" r="108" />
-        <circle id="timer-ring-progress" cx="120" cy="120" r="108" />
-      </svg>
+    <div id="timer-display">25:00</div>
     <div id="timer-controls">
       <button id="start-pause-btn" aria-label="Start">
         <svg id="icon-play" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         <svg id="icon-pause" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
       </button>
       <button id="reset-btn" aria-label="Reset">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
       </button>
     </div>
     <div id="streak-row">
@@ -47,7 +44,11 @@
     </div>
   </div>
 
-  <button id="focus-toggle">Focus</button>
+  <button id="focus-toggle" aria-label="Focus mode">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="4" cy="4" r="2"/><path d="m14 5 3-3 3 3"/><path d="m14 10 3-3 3 3"/><path d="M17 14V2"/><path d="M17 14H7l-5 8h20Z"/><path d="M8 14v8"/><path d="m9 14 5 8"/>
+    </svg>
+  </button>
 
   <div id="name-prompt" class="hidden">
     <p id="name-label">What should I call you?</p>

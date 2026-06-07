@@ -275,18 +275,21 @@ function loadQuote() {
 
 let focusMode = false;
 
+const ICON_MOUNTAIN = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><path d="m14 5 3-3 3 3"/><path d="m14 10 3-3 3 3"/><path d="M17 14V2"/><path d="M17 14H7l-5 8h20Z"/><path d="M8 14v8"/><path d="m9 14 5 8"/></svg>`;
+const ICON_CLOSE    = `<svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="4" y1="4" x2="20" y2="20"/><line x1="20" y1="4" x2="4" y2="20"/></svg>`;
+
 document.getElementById('focus-toggle').addEventListener('click', () => {
   focusMode = !focusMode;
   document.body.classList.toggle('focus-mode', focusMode);
-  document.getElementById('focus-toggle').textContent = focusMode ? '✕' : 'Focus';
+  document.getElementById('focus-toggle').innerHTML = focusMode ? ICON_CLOSE : ICON_MOUNTAIN;
 });
 
 // ============================================================
 // POMODORO TIMER
 // ============================================================
 
-const WORK_SECONDS  = 5;
-const BREAK_SECONDS = 5;
+const WORK_SECONDS  = 25 * 60;
+const BREAK_SECONDS =  5 * 60;
 
 const timer = {
   phase:      'work', // 'work' | 'break'
@@ -295,24 +298,22 @@ const timer = {
   intervalId: null,
 };
 
-const RING_CIRCUMFERENCE = 2 * Math.PI * 108;
+function formatTime(s) {
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
 
 function setPlayPauseIcon(running) {
   document.getElementById('icon-play').style.display  = running ? 'none' : 'inline';
   document.getElementById('icon-pause').style.display = running ? 'inline' : 'none';
 }
 
-function renderTimer(instant = false) {
-  const totalSeconds = timer.phase === 'work' ? WORK_SECONDS : BREAK_SECONDS;
-  const progress = (totalSeconds - timer.remaining) / totalSeconds;
-  const ring = document.getElementById('timer-ring-progress');
-  if (instant) ring.style.transition = 'none';
-  ring.style.strokeDasharray  = RING_CIRCUMFERENCE;
-  ring.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - progress);
-  ring.style.stroke = timer.phase === 'work'
-    ? 'rgba(255, 255, 255, 0.4)'
-    : 'rgba(168, 216, 184, 0.4)';
-  if (instant) requestAnimationFrame(() => { ring.style.transition = ''; });
+function setPhaseUI(phase) {
+  document.getElementById('timer-display').dataset.phase = phase;
+}
+
+function renderTimer() {
+  document.getElementById('timer-display').textContent = formatTime(timer.remaining);
+  setPhaseUI(timer.phase);
 }
 
 function tick() {
@@ -359,7 +360,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   timer.running   = false;
   timer.phase     = 'work';
   timer.remaining = WORK_SECONDS;
-  renderTimer(true);
+  renderTimer();
   setPlayPauseIcon(false);
 });
 
@@ -547,5 +548,6 @@ loadQuote();
 updateTime();
 setInterval(updateTime, 1000);
 renderTimer();
+setPlayPauseIcon(false);
 renderDots();
 initName();
